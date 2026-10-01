@@ -45,6 +45,10 @@ public final class DockPreviewCoordinator {
     /// players, whose preview also shows playback controls).
     public var showsWithoutWindows: (DockItem) -> Bool = { _ in false }
 
+    /// Apps that never get a preview. Away itself is excluded: its own window is
+    /// already in front, and Relaunch or Force Quit there would close Away.
+    public var ignoredBundleIdentifiers: Set<String> = Set([Bundle.main.bundleIdentifier].compactMap { $0 })
+
     /// Finds the process behind a Dock item. Injectable so tests need no real app.
     public var processID: (DockItem) -> pid_t? = { $0.runningProcessID }
 
@@ -122,7 +126,8 @@ public final class DockPreviewCoordinator {
             dismissTask?.cancel()
             dismissTask = nil
 
-            guard item.kind == .application, item.isRunning else {
+            guard item.kind == .application, item.isRunning,
+                  !ignoredBundleIdentifiers.contains(item.bundleIdentifier ?? "") else {
                 hidePanel()
                 return
             }

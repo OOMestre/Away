@@ -155,3 +155,23 @@ final class WindowMatcherTests: XCTestCase {
         XCTAssertNil(WindowMatcher.match(frame: left, title: nil, in: candidates))
     }
 }
+
+final class PreviewWindowFilterTests: XCTestCase {
+    private let menuBarStrip = CGRect(x: 0, y: 0, width: 1280, height: 29)
+    private let document = CGRect(x: 0, y: 29, width: 1280, height: 710)
+
+    func testDropsMenuBarStripsEvenWithoutAccessibility() {
+        XCTAssertFalse(PreviewWindowFilter.isPreviewable(frame: menuBarStrip, layer: 0, hasAccessibilityMatch: false, accessibilityAvailable: false))
+        XCTAssertFalse(PreviewWindowFilter.isPreviewable(frame: menuBarStrip, layer: 0, hasAccessibilityMatch: true, accessibilityAvailable: true))
+    }
+
+    func testRequiresAccessibilityMatchWhenAvailable() {
+        XCTAssertTrue(PreviewWindowFilter.isPreviewable(frame: document, layer: 0, hasAccessibilityMatch: true, accessibilityAvailable: true))
+        XCTAssertFalse(PreviewWindowFilter.isPreviewable(frame: document, layer: 0, hasAccessibilityMatch: false, accessibilityAvailable: true))
+        XCTAssertTrue(PreviewWindowFilter.isPreviewable(frame: document, layer: 0, hasAccessibilityMatch: false, accessibilityAvailable: false))
+    }
+
+    func testDropsNonNormalLayers() {
+        XCTAssertFalse(PreviewWindowFilter.isPreviewable(frame: document, layer: 3, hasAccessibilityMatch: true, accessibilityAvailable: true))
+    }
+}

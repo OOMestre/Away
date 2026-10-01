@@ -69,13 +69,21 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
 
         let axWindows = windowManager.windows(of: processID)
 
+        let candidates = axWindows.map { (frame: $0.frame, title: $0.title) }
+        let matches = content.windows.reduce(into: [CGWindowID: WindowInfo]()) { result, window in
+            guard window.owningApplication?.processID == processID,
+                  let index = WindowMatcher.match(frame: window.frame, title: window.title, in: candidates)
+            else { return }
+            result[window.windowID] = axWindows[index]
+        }
         let appWindows = content.windows.filter { window in
-            guard window.owningApplication?.processID == processID else { return false }
-            // Filter out system overlay/tooltips: windowLayer == 0 represents regular app windows
-            guard window.windowLayer == 0 else { return false }
-            // Filter out negligible helper windows
-            guard window.frame.width > 20 && window.frame.height > 20 else { return false }
-            return true
+            window.owningApplication?.processID == processID
+                && PreviewWindowFilter.isPreviewable(
+                    frame: window.frame,
+                    layer: window.windowLayer,
+                    hasAccessibilityMatch: matches[window.windowID] != nil,
+                    accessibilityAvailable: !axWindows.isEmpty
+                )
         }
 
         // Only the windows of the hovered app are kept, so closed windows
@@ -85,11 +93,7 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
         }
 
         return appWindows.map { scWindow in
-            let matchedAX = WindowMatcher.match(
-                frame: scWindow.frame,
-                title: scWindow.title,
-                in: axWindows.map { (frame: $0.frame, title: $0.title) }
-            ).map { axWindows[$0] }
+            let matchedAX = matches[scWindow.windowID]
 
             let scTitle = scWindow.title ?? ""
             let title = !scTitle.isEmpty ? scTitle : (matchedAX?.title ?? "")
@@ -166,5 +170,24 @@ public enum WindowMatcher {
             if byTitle.count == 1 { return byTitle[0] }
         }
         return byFrame.first
+    }
+}
+
+/// Decides which ScreenCaptureKit windows are real app windows.
+///
+/// Apps own several invisible layer-0 windows, such as one menu bar strip per
+/// Space (full width, about 30 pt tall). Accessibility only reports the
+/// windows a person can use, so when it is available a window must match one.
+public enum PreviewWindowFilter {
+    public static let minimumSide: CGFloat = 60
+
+    public static func isPreviewable(
+        frame: CGRect,
+        layer: Int,
+        hasAccessibilityMatch: Bool,
+        accessibilityAvailable: Bool
+    ) -> Bool {
+        guard layer == 0, frame.width >= minimumSide, frame.height >= minimumSide else { return false }
+        return accessibilityAvailable ? hasAccessibilityMatch : true
     }
 }

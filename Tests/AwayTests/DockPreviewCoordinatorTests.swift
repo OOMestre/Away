@@ -84,6 +84,23 @@ final class DockPreviewCoordinatorTests: XCTestCase {
         XCTAssertTrue(mockPresenter.isVisible)
     }
 
+    func testIgnoredAppDoesNotOpen() async {
+        settingsStore.settings.hoverDelay = 0.05
+        mockCapturer.windowsToReturn = [
+            WindowPreviewItem(id: 1, processID: 999, title: "Doc", frame: CGRect(x: 0, y: 0, width: 600, height: 400))
+        ]
+        let coordinator = makeCoordinator(monitor: DockHoverMonitor())
+        let safari = DockItem(index: 1, kind: .application, title: "Safari", frame: .zero,
+                              url: URL(fileURLWithPath: "/Applications/Safari.app"), isRunning: true)
+        coordinator.ignoredBundleIdentifiers = ["com.apple.Safari"]
+
+        coordinator.dockHoverChanged(to: safari)
+        try? await Task.sleep(for: .milliseconds(300))
+
+        XCTAssertFalse(mockPresenter.isVisible)
+        XCTAssertEqual(mockCapturer.previewableWindowsCalledCount, 0)
+    }
+
     func testHoverOnNonRunningItemDoesNotOpen() async {
         let monitor = DockHoverMonitor()
         let coordinator = DockPreviewCoordinator(
