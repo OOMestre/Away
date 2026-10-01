@@ -67,6 +67,8 @@ final class DockPreferencesStoreTests: XCTestCase {
         let original = await store.value(for: .staticOnly)
         XCTAssertNil(original)
         XCTAssertEqual(restarter.restarts, 4)
+    }
+
     func testInstantAutoHideCanReturnToDefaultsAndBeUndone() async throws {
         try await store.apply([
             DockPreferenceChange(.autohide, .bool(true)),
