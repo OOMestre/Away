@@ -1,0 +1,19 @@
+import AwayCore
+import SwiftUI
+
+@main
+struct AwayApp: App {
+    init() {
+        // Launched as a bare SwiftPM executable during development; promote it
+        // to a regular foreground app so the window appears in front.
+        NSApplication.shared.setActivationPolicy(.regular)
+    }
+
+    var body: some Scene {
+        WindowGroup("Away") {
+            ContentView()
+                .frame(minWidth: 760, minHeight: 500)
+        }
+        .windowResizability(.contentMinSize)
+    }
+}
