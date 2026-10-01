@@ -67,6 +67,33 @@ final class DockPreferencesStoreTests: XCTestCase {
         let original = await store.value(for: .staticOnly)
         XCTAssertNil(original)
         XCTAssertEqual(restarter.restarts, 4)
+    func testInstantAutoHideCanReturnToDefaultsAndBeUndone() async throws {
+        try await store.apply([
+            DockPreferenceChange(.autohide, .bool(true)),
+            DockPreferenceChange(.autohideDelay, .double(0)),
+            DockPreferenceChange(.autohideTimeModifier, .double(0)),
+        ])
+
+        XCTAssertEqual(domain.value(forKey: "autohide"), .bool(true))
+        XCTAssertEqual(domain.value(forKey: "autohide-delay"), .double(0))
+        XCTAssertEqual(domain.value(forKey: "autohide-time-modifier"), .double(0))
+        XCTAssertEqual(restarter.restarts, 1)
+
+        try await store.apply([
+            DockPreferenceChange(.autohide, nil),
+            DockPreferenceChange(.autohideDelay, nil),
+            DockPreferenceChange(.autohideTimeModifier, nil),
+        ])
+
+        XCTAssertNil(domain.value(forKey: "autohide"))
+        XCTAssertNil(domain.value(forKey: "autohide-delay"))
+        XCTAssertNil(domain.value(forKey: "autohide-time-modifier"))
+        XCTAssertEqual(restarter.restarts, 2)
+
+        try await store.undo()
+        XCTAssertEqual(domain.value(forKey: "autohide"), .bool(true))
+        XCTAssertEqual(domain.value(forKey: "autohide-delay"), .double(0))
+        XCTAssertEqual(domain.value(forKey: "autohide-time-modifier"), .double(0))
     }
 
     func testFirstApplyCapturesOriginalOnlyOnce() async throws {
