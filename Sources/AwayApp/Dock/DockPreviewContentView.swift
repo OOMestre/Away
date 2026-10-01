@@ -255,6 +255,13 @@ struct DockPreviewContentView: View {
         .onTapGesture {
             onSelect(window)
         }
+        .help(window.isMinimized ? "Click to restore and bring window to front" : "Click to bring window to front")
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(window.title.isEmpty ? appTitle : window.title)
+        .accessibilityHint("Click to bring this window to the front")
+        .accessibilityAction(named: "Focus window") {
+            onSelect(window)
+        }
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.spring(response: 0.2, dampingFraction: 0.8), value: isHovered)
     }

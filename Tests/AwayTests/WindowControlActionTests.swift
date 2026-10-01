@@ -153,4 +153,59 @@ final class WindowControlActionTests: XCTestCase {
             XCTAssertEqual(error as? WindowActionError, .unsupported)
         }
     }
+
+    func testFocusWindowPreviewItemWithDirectWindowInfo() throws {
+        let mock = MockWindowService()
+        let window = makeWindow(pid: 300, title: "Target Document")
+        let item = WindowPreviewItem(window: window)
+
+        try mock.focus(item)
+
+        XCTAssertEqual(mock.focusedWindows.count, 1)
+        XCTAssertEqual(mock.focusedWindows.first?.title, "Target Document")
+        XCTAssertEqual(mock.focusedWindows.first?.pid, 300)
+    }
+
+    func testFocusSpecificWindowAmongMultipleWindowsOfSameProcess() throws {
+        let mock = MockWindowService()
+        let win1 = makeWindow(pid: 500, title: "Window 1", frame: CGRect(x: 0, y: 0, width: 400, height: 300))
+        let win2 = makeWindow(pid: 500, title: "Window 2", frame: CGRect(x: 450, y: 0, width: 400, height: 300))
+        let win3 = makeWindow(pid: 500, title: "Window 3", frame: CGRect(x: 900, y: 0, width: 400, height: 300))
+        mock.storedWindows[500] = [win1, win2, win3]
+
+        // User clicks on thumbnail for Window 2
+        let item2 = WindowPreviewItem(window: win2, id: 2)
+        try mock.focus(item2)
+
+        // Only Window 2 should be focused, not the whole app or other windows
+        XCTAssertEqual(mock.focusedWindows.count, 1)
+        XCTAssertEqual(mock.focusedWindows.first?.title, "Window 2")
+
+        // User clicks on thumbnail for Window 3
+        let item3 = WindowPreviewItem(window: win3, id: 3)
+        try mock.focus(item3)
+
+        XCTAssertEqual(mock.focusedWindows.count, 2)
+        XCTAssertEqual(mock.focusedWindows.last?.title, "Window 3")
+    }
+
+    func testFocusWindowWithIdenticalTitlesDistinguishesByDirectInfo() throws {
+        let mock = MockWindowService()
+        let winA = makeWindow(pid: 600, title: "Terminal", frame: CGRect(x: 10, y: 10, width: 500, height: 400))
+        let winB = makeWindow(pid: 600, title: "Terminal", frame: CGRect(x: 600, y: 10, width: 500, height: 400))
+        mock.storedWindows[600] = [winA, winB]
+
+        let itemA = WindowPreviewItem(window: winA, id: 10)
+        let itemB = WindowPreviewItem(window: winB, id: 20)
+
+        // Clicking item B focuses winB specifically even though winA has the exact same title
+        try mock.focus(itemB)
+        XCTAssertEqual(mock.focusedWindows.count, 1)
+        XCTAssertEqual(mock.focusedWindows.first?.frame, winB.frame)
+
+        // Clicking item A focuses winA specifically
+        try mock.focus(itemA)
+        XCTAssertEqual(mock.focusedWindows.count, 2)
+        XCTAssertEqual(mock.focusedWindows.last?.frame, winA.frame)
+    }
 }

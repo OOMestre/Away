@@ -11,6 +11,7 @@ public struct WindowPreviewItem: Identifiable, Equatable, Sendable {
     public let isMinimized: Bool
     public let isFullScreen: Bool
     public let isOnScreen: Bool
+    public let windowInfo: WindowInfo?
 
     public init(
         id: CGWindowID,
@@ -19,7 +20,8 @@ public struct WindowPreviewItem: Identifiable, Equatable, Sendable {
         frame: CGRect,
         isMinimized: Bool = false,
         isFullScreen: Bool = false,
-        isOnScreen: Bool = true
+        isOnScreen: Bool = true,
+        windowInfo: WindowInfo? = nil
     ) {
         self.id = id
         self.processID = processID
@@ -28,5 +30,20 @@ public struct WindowPreviewItem: Identifiable, Equatable, Sendable {
         self.isMinimized = isMinimized
         self.isFullScreen = isFullScreen
         self.isOnScreen = isOnScreen
+        self.windowInfo = windowInfo
+    }
+
+    public init(window: WindowInfo, id: CGWindowID? = nil) {
+        let synthID = id ?? CGWindowID(bitPattern: Int32(truncatingIfNeeded: CFHash(window.element.element)))
+        self.init(
+            id: synthID,
+            processID: window.pid,
+            title: window.title,
+            frame: window.frame ?? .zero,
+            isMinimized: window.isMinimized,
+            isFullScreen: window.isFullScreen,
+            isOnScreen: !window.isMinimized,
+            windowInfo: window
+        )
     }
 }

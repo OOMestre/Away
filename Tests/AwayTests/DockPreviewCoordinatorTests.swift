@@ -211,6 +211,43 @@ final class DockPreviewCoordinatorTests: XCTestCase {
         // Should hide presenter when windows become empty
         XCTAssertFalse(mockPresenter.isVisible)
     }
+
+    func testSelectWindowFocusesSpecificWindowAndHidesPanel() {
+        let monitor = DockHoverMonitor()
+        let coordinator = DockPreviewCoordinator(
+            dockHover: monitor,
+            settingsStore: settingsStore,
+            thumbnailService: mockCapturer,
+            windowManager: mockWindowManager,
+            permissions: mockPermissions,
+            dockItems: mockLocator,
+            presenter: mockPresenter
+        )
+
+        let dummyElement = AccessibilityElement.application(pid: 250)
+        let windowInfo = WindowInfo(
+            element: dummyElement,
+            pid: 250,
+            title: "Specific Window",
+            frame: CGRect(x: 10, y: 10, width: 800, height: 600),
+            isMinimized: false,
+            isFullScreen: false,
+            isStandard: true
+        )
+        let windowItem = WindowPreviewItem(window: windowInfo, id: 42)
+
+        mockPresenter.shownWindows = [windowItem]
+        mockPresenter.isVisible = true
+
+        // User clicks on thumbnail
+        coordinator.selectWindow(windowItem)
+
+        // Panel must immediately hide
+        XCTAssertFalse(mockPresenter.isVisible)
+        // Specific window must be focused
+        XCTAssertEqual(mockWindowManager.focusedWindow?.pid, 250)
+        XCTAssertEqual(mockWindowManager.focusedWindow?.title, "Specific Window")
+    }
 }
 
 // MARK: - Mocks for Hermetic Tests

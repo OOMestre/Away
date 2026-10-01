@@ -69,6 +69,28 @@ final class WindowPreviewItemTests: XCTestCase {
         XCTAssertEqual(thumbnail.width, 10)
         XCTAssertEqual(thumbnail.height, 10)
     }
+
+    func testWindowPreviewItemInitFromWindowInfo() {
+        let dummy = AccessibilityElement.application(pid: 777)
+        let window = WindowInfo(
+            element: dummy,
+            pid: 777,
+            title: "Code Editor",
+            frame: CGRect(x: 20, y: 30, width: 900, height: 700),
+            isMinimized: false,
+            isFullScreen: true,
+            isStandard: true
+        )
+        let item = WindowPreviewItem(window: window, id: 999)
+
+        XCTAssertEqual(item.id, 999)
+        XCTAssertEqual(item.processID, 777)
+        XCTAssertEqual(item.title, "Code Editor")
+        XCTAssertEqual(item.frame.width, 900)
+        XCTAssertFalse(item.isMinimized)
+        XCTAssertTrue(item.isFullScreen)
+        XCTAssertEqual(item.windowInfo, window)
+    }
 }
 
 private final class MockThumbnailCapturer: WindowThumbnailCapturing, @unchecked Sendable {

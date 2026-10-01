@@ -61,7 +61,8 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
                     frame: frame,
                     isMinimized: ax.isMinimized,
                     isFullScreen: ax.isFullScreen,
-                    isOnScreen: !ax.isMinimized
+                    isOnScreen: !ax.isMinimized,
+                    windowInfo: ax
                 )
             }
         }
@@ -106,7 +107,8 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
                 frame: scWindow.frame,
                 isMinimized: matchedAX?.isMinimized ?? false,
                 isFullScreen: matchedAX?.isFullScreen ?? false,
-                isOnScreen: scWindow.isOnScreen
+                isOnScreen: scWindow.isOnScreen,
+                windowInfo: matchedAX
             )
         }
     }

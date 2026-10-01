@@ -92,7 +92,7 @@ struct DockWindowPreviewSection: View {
         } header: {
             Text("Window Previews")
         } footer: {
-            Text("Hover over any running app icon in the Dock to preview its open windows. Hover over any thumbnail to reveal macOS window buttons (close, minimize, full screen).")
+            Text("Hover over any running app icon in the Dock to preview its open windows. Click a thumbnail to bring only that specific window to the front. Hover over any thumbnail to reveal macOS window buttons (close, minimize, full screen).")
         }
         .onAppear(perform: checkPermissions)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

@@ -40,21 +40,47 @@ public extension WindowManaging {
 
     /// Finds a matching `WindowInfo` for the given `WindowPreviewItem`.
     func findWindow(matching item: WindowPreviewItem) -> WindowInfo? {
+        if let direct = item.windowInfo {
+            return direct
+        }
         let appWindows = windows(of: item.processID)
-        if let match = appWindows.first(where: { !$0.title.isEmpty && $0.title == item.title }) {
+        guard !appWindows.isEmpty else { return nil }
+
+        // Match by synthesized element hash if present
+        if let match = appWindows.first(where: {
+            CGWindowID(bitPattern: Int32(truncatingIfNeeded: CFHash($0.element.element))) == item.id
+        }) {
             return match
         }
+
+        // Match by unique non-empty title
+        let titleMatches = appWindows.filter { !$0.title.isEmpty && $0.title == item.title }
+        if titleMatches.count == 1 {
+            return titleMatches[0]
+        }
+
+        // Match by frame proximity
         if let match = appWindows.first(where: {
             guard let f = $0.frame else { return false }
             return abs(f.origin.x - item.frame.origin.x) < 10 && abs(f.origin.y - item.frame.origin.y) < 10
         }) {
             return match
         }
-        return appWindows.first
+
+        if let match = titleMatches.first {
+            return match
+        }
+
+        // Fallback only if there is a single window
+        return appWindows.count == 1 ? appWindows.first : nil
     }
 
     /// Performs the given window control action on a `WindowPreviewItem`.
     func perform(_ action: WindowControlAction, on item: WindowPreviewItem) throws {
+        if let direct = item.windowInfo {
+            try perform(action, on: direct)
+            return
+        }
         guard let window = findWindow(matching: item) else {
             throw WindowActionError.unsupported
         }
@@ -62,7 +88,14 @@ public extension WindowManaging {
     }
 
     /// Brings the window of the given `WindowPreviewItem` to the foreground and focuses it.
+    ///
+    /// Implements requirement A2: clicking a thumbnail focuses specifically that window,
+    /// without pulling all windows of the application to the foreground.
     func focus(_ item: WindowPreviewItem) throws {
+        if let direct = item.windowInfo {
+            try focus(direct)
+            return
+        }
         guard let window = findWindow(matching: item) else {
             throw WindowActionError.unsupported
         }
