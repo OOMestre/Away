@@ -4,6 +4,7 @@ import SwiftUI
 @main
 @MainActor
 struct AwayApp: App {
+    @NSApplicationDelegateAdaptor(AwayApplicationDelegate.self) private var delegate
     @State private var services = AppServices()
 
     init() {
@@ -17,7 +18,32 @@ struct AwayApp: App {
             ContentView()
                 .environment(services)
                 .frame(minWidth: 760, minHeight: 500)
+                .task {
+                    delegate.services = services
+                    await services.resumeIndicators()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    Task { await services.resumeIndicators() }
+                }
         }
         .windowResizability(.contentMinSize)
+    }
+}
+
+@MainActor
+final class AwayApplicationDelegate: NSObject, NSApplicationDelegate {
+    var services: AppServices?
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let services else { return .terminateNow }
+        Task {
+            do {
+                try await services.suspendIndicators()
+                sender.reply(toApplicationShouldTerminate: true)
+            } catch {
+                sender.reply(toApplicationShouldTerminate: false)
+            }
+        }
+        return .terminateLater
     }
 }

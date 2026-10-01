@@ -9,6 +9,7 @@ struct DockView: View {
             DockPermissionsSection()
             DockWindowPreviewSection()
             DockLayoutSection()
+            DockRunningIndicatorsSection()
             DockBadgesSection()
             DockMediaSection()
             DockBackupSection()
