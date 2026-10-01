@@ -108,6 +108,8 @@ cat > "$TEMP_APP/Contents/Info.plist" <<PLIST_EOF
   <string>$VERSION</string>
   <key>AwayReleaseTag</key>
   <string>$RELEASE_TAG</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Away controls media playback in apps you choose, such as Music.</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>NSPrincipalClass</key>
