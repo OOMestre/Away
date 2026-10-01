@@ -14,6 +14,8 @@ final class AppServices {
     let windows: WindowManaging
     let permissions: PermissionChecking
     let dockHover: DockHoverMonitor
+    let media: MediaControlling
+    let mediaPreview: DockMediaPreviewController
 
     /// Set when the backup folder could not be created; Dock changes stay disabled.
     let setupError: String?
@@ -30,5 +32,8 @@ final class AppServices {
         windows = AccessibilityWindowService()
         permissions = SystemPermissionsService()
         dockHover = DockHoverMonitor()
+        media = AppleScriptMediaController()
+        mediaPreview = DockMediaPreviewController(hover: dockHover, media: media, permissions: permissions)
+        mediaPreview.start()
     }
 }
