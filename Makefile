@@ -18,7 +18,7 @@ release-beta:
 	./scripts/release-staging-beta.sh
 
 release-notes:
-	./scripts/generate-release-notes.sh
+	swift scripts/generate-release-notes.swift
 
 clean:
 	rm -rf .build dist

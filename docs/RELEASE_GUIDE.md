@@ -141,7 +141,7 @@ make release-notes
 ```
 Or export directly to a markdown file or update `CHANGELOG.md`:
 ```bash
-./scripts/generate-release-notes.sh --release-type production --output dist/RELEASE_NOTES.md
+swift scripts/generate-release-notes.swift --release-type production --output dist/RELEASE_NOTES.md
 ```
 Update `CHANGELOG.md` with the release notes and commit the changes.
 
@@ -178,14 +178,14 @@ Away includes a set of Makefile convenience commands:
 | `make build` | `swift build -c release` | Builds release binary executable. |
 | `make staging` | `./scripts/build-staging.sh` | Builds and signs `dist/Away Staging.app` with hardened runtime and automatic in-place update support. |
 | `make release-beta` | `./scripts/release-staging-beta.sh` | Runs tests, increments beta tag, creates git tag, and builds staging bundle. |
-| `make release-notes` | `./scripts/generate-release-notes.sh` | Extracts commit changes into formatted markdown release notes. |
+| `make release-notes` | `swift scripts/generate-release-notes.swift` | Extracts commit changes into formatted markdown release notes. |
 | `make clean` | `rm -rf .build dist` | Cleans build caches and output artifacts. |
 
 ---
 
 ## 7. Automated Release Notes Generation
 
-The `scripts/generate-release-notes.sh` script parses commit messages into categorized, user-friendly markdown sections.
+The `scripts/generate-release-notes.swift` script parses commit messages into categorized, user-friendly markdown sections.
 
 ### Commit Categorization Mapping
 
@@ -203,16 +203,16 @@ The `scripts/generate-release-notes.sh` script parses commit messages into categ
 ### Custom Arguments & Flags
 ```bash
 # Generate notes for specific version
-./scripts/generate-release-notes.sh --version v0.1.0-beta.2
+swift scripts/generate-release-notes.swift --version v0.1.0-beta.2
 
 # Generate notes between two tags
-./scripts/generate-release-notes.sh --from v0.1.0-beta.1 --to v0.1.0-beta.2
+swift scripts/generate-release-notes.swift --from v0.1.0-beta.1 --to v0.1.0-beta.2
 
 # Write directly to file
-./scripts/generate-release-notes.sh --output RELEASE_NOTES.md
+swift scripts/generate-release-notes.swift --output RELEASE_NOTES.md
 
 # Include full commit log details
-./scripts/generate-release-notes.sh --include-raw-log
+swift scripts/generate-release-notes.swift --include-raw-log
 ```
 
 ---
