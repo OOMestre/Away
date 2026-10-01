@@ -17,6 +17,7 @@ struct AwayApp: App {
             ContentView()
                 .environment(services)
                 .frame(minWidth: 760, minHeight: 500)
+                .task { services.unresponsiveAlerts.start() }
         }
         .windowResizability(.contentMinSize)
     }
