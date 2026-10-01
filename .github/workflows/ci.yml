@@ -13,7 +13,7 @@ on:
 jobs:
   build-and-test:
     name: Build & Run Test Suite
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Checkout Repository
