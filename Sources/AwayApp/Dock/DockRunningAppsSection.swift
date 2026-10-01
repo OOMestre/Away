@@ -25,6 +25,9 @@ struct DockRunningAppsSection: View {
             Text("Shows only apps that are currently running in the Dock. Pinned apps return when you turn this off. The Dock restarts briefly after a change.")
         }
         .task { await refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: .awayDockPreferencesChanged)) { _ in
+            Task { await refresh() }
+        }
     }
 
     private func updateRunningAppsOnly(_ newValue: Bool) {
@@ -34,7 +37,9 @@ struct DockRunningAppsSection: View {
 
         Task {
             do {
-                try await store.apply([DockPreferenceChange(.staticOnly, .bool(newValue))])
+                if try await store.apply([DockPreferenceChange(.staticOnly, .bool(newValue))]) {
+                    NotificationCenter.default.post(name: .awayDockPreferencesChanged, object: nil)
+                }
                 errorMessage = nil
             } catch {
                 errorMessage = error.localizedDescription

@@ -29,6 +29,26 @@ public actor DockPreferencesStore {
         domain.value(forKey: key.rawValue)
     }
 
+    public func spacerLayout(for side: DockSpacerSide) throws -> DockSpacerLayout {
+        try DockSpacerLayout(domain.value(forKey: side.preferenceKey.rawValue))
+    }
+
+    /// Applies an edit only to the exact list the UI displayed. External Dock
+    /// changes cannot be overwritten by a stale reorder or removal.
+    @discardableResult
+    public func editSpacers(
+        in side: DockSpacerSide,
+        expected: PropertyListValue?,
+        _ edit: DockSpacerEdit
+    ) throws -> Bool {
+        let key = side.preferenceKey
+        let current = domain.value(forKey: key.rawValue)
+        guard current == expected else { throw DockSpacerError.dockChanged }
+        var layout = try DockSpacerLayout(current)
+        try layout.edit(edit)
+        return try apply([DockPreferenceChange(key, layout.propertyListValue)])
+    }
+
     public var canUndo: Bool {
         (try? backups.loadHistory().isEmpty == false) ?? false
     }

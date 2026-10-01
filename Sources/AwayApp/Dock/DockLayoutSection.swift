@@ -6,5 +6,6 @@ struct DockLayoutSection: View {
     var body: some View {
         DockAutoHideSection()
         DockRunningAppsSection()
+        DockSpacersSection()
     }
 }

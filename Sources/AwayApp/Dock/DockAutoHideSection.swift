@@ -86,6 +86,9 @@ struct DockAutoHideSection: View {
             Text("Instant removes the wait and animation. Applying a change briefly restarts the Dock; Away saves the previous settings for Undo.")
         }
         .task { await refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: .awayDockPreferencesChanged)) { _ in
+            Task { await refresh() }
+        }
     }
 
     @ViewBuilder
@@ -114,7 +117,9 @@ struct DockAutoHideSection: View {
         isWorking = true
         Task {
             do {
-                _ = try await store.apply(changes)
+                if try await store.apply(changes) {
+                    NotificationCenter.default.post(name: .awayDockPreferencesChanged, object: nil)
+                }
                 errorMessage = nil
                 await refresh()
             } catch {
