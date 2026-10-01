@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -51,6 +52,19 @@ public struct DockItem: Equatable, Sendable {
     public var bundleIdentifier: String? {
         guard kind == .application, let url else { return nil }
         return Bundle(url: url)?.bundleIdentifier
+    }
+
+    public var runningProcessID: pid_t? {
+        guard isRunning else { return nil }
+        if let bundleIdentifier,
+           let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first {
+            return app.processIdentifier
+        }
+        if let url,
+           let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL == url }) {
+            return app.processIdentifier
+        }
+        return NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == title })?.processIdentifier
     }
 }
 
