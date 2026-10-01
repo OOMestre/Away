@@ -42,6 +42,9 @@ struct DockBackupSection: View {
             Text("Away saves your Dock settings before its first change. The Dock restarts briefly when settings are applied.")
         }
         .task { await refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: .awayDockPreferencesChanged)) { _ in
+            Task { await refresh() }
+        }
         .confirmationDialog(
             confirmation == .restoreOriginal ? "Restore the original Dock?" : "Reset to the macOS defaults?",
             isPresented: Binding(get: { confirmation != nil }, set: { if !$0 { confirmation = nil } }),
@@ -67,8 +70,11 @@ struct DockBackupSection: View {
         guard let store = services.dockPreferences else { return }
         Task {
             do {
-                _ = try await operation(store)
+                let changed = try await operation(store)
                 errorMessage = nil
+                if changed {
+                    NotificationCenter.default.post(name: .awayDockPreferencesChanged, object: nil)
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }
