@@ -30,9 +30,17 @@ public protocol WindowThumbnailCapturing: Sendable {
 }
 
 /// Production thumbnail service using macOS ScreenCaptureKit (`SCScreenshotManager`).
-/// Does not use obsolete APIs such as `CGWindowListCreateImage`.
+///
+/// The window list comes from Accessibility, which is fast and reports only
+/// windows a person can use. ScreenCaptureKit is used only for the images:
+/// listing every window on the system can take seconds, so one request runs
+/// at a time, its result is reused briefly, and a slow answer never blocks
+/// the preview (the panel opens with titles and thumbnails fill in later).
 public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @unchecked Sendable {
+    public static let contentTimeout: Duration = .milliseconds(800)
+
     private let windowManager: WindowManaging
+    private let shareableContent = ShareableContentCache()
     private let lock = NSLock()
     private var cachedWindows: [CGWindowID: SCWindow] = [:]
 
@@ -41,49 +49,35 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
     }
 
     public func previewableWindows(for processID: pid_t) async throws -> [WindowPreviewItem] {
-        let content: SCShareableContent
-        do {
-            content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-        } catch {
-            // If ScreenCaptureKit fails (e.g. permission denied), fall back to Accessibility window list
-            let axWindows = windowManager.windows(of: processID)
-            guard !axWindows.isEmpty else {
-                throw WindowCaptureError.permissionDenied
-            }
-            return axWindows.compactMap { ax -> WindowPreviewItem? in
-                guard let frame = ax.frame, frame.width > 20, frame.height > 20 else { return nil }
-                // Synthesize an ID based on hash/pid if AX does not have CGWindowID
-                let synthID = CGWindowID(bitPattern: Int32(truncatingIfNeeded: CFHash(ax.element.element)))
-                return WindowPreviewItem(
-                    id: synthID,
-                    processID: processID,
-                    title: ax.title,
-                    frame: frame,
-                    isMinimized: ax.isMinimized,
-                    isFullScreen: ax.isFullScreen,
-                    isOnScreen: !ax.isMinimized,
-                    windowInfo: ax
-                )
-            }
-        }
-
+        let clock = ContinuousClock()
+        let start = clock.now
         let axWindows = windowManager.windows(of: processID)
+        let systemWindows = await shareableContent.windows(timeout: Self.contentTimeout)
 
+        let items: [WindowPreviewItem]
+        if let systemWindows {
+            items = matchedItems(processID: processID, axWindows: axWindows, systemWindows: systemWindows)
+        } else {
+            items = accessibilityItems(processID: processID, axWindows: axWindows)
+        }
+        AwayLog.previews.debug("pid \(processID): \(items.count) windows (ax \(axWindows.count), capture list \(systemWindows == nil ? "unavailable" : "ok")) in \(start.duration(to: clock.now))")
+        return items
+    }
+
+    private func matchedItems(processID: pid_t, axWindows: [WindowInfo], systemWindows: [SCWindow]) -> [WindowPreviewItem] {
         let candidates = axWindows.map { (frame: $0.frame, title: $0.title) }
-        let matches = content.windows.reduce(into: [CGWindowID: WindowInfo]()) { result, window in
-            guard window.owningApplication?.processID == processID,
-                  let index = WindowMatcher.match(frame: window.frame, title: window.title, in: candidates)
-            else { return }
+        let ownWindows = systemWindows.filter { $0.owningApplication?.processID == processID }
+        let matches = ownWindows.reduce(into: [CGWindowID: WindowInfo]()) { result, window in
+            guard let index = WindowMatcher.match(frame: window.frame, title: window.title, in: candidates) else { return }
             result[window.windowID] = axWindows[index]
         }
-        let appWindows = content.windows.filter { window in
-            window.owningApplication?.processID == processID
-                && PreviewWindowFilter.isPreviewable(
-                    frame: window.frame,
-                    layer: window.windowLayer,
-                    hasAccessibilityMatch: matches[window.windowID] != nil,
-                    accessibilityAvailable: !axWindows.isEmpty
-                )
+        let appWindows = ownWindows.filter { window in
+            PreviewWindowFilter.isPreviewable(
+                frame: window.frame,
+                layer: window.windowLayer,
+                hasAccessibilityMatch: matches[window.windowID] != nil,
+                accessibilityAvailable: !axWindows.isEmpty
+            )
         }
 
         // Only the windows of the hovered app are kept, so closed windows
@@ -94,14 +88,11 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
 
         return appWindows.map { scWindow in
             let matchedAX = matches[scWindow.windowID]
-
             let scTitle = scWindow.title ?? ""
-            let title = !scTitle.isEmpty ? scTitle : (matchedAX?.title ?? "")
-
             return WindowPreviewItem(
                 id: scWindow.windowID,
                 processID: processID,
-                title: title,
+                title: !scTitle.isEmpty ? scTitle : (matchedAX?.title ?? ""),
                 frame: scWindow.frame,
                 isMinimized: matchedAX?.isMinimized ?? false,
                 isFullScreen: matchedAX?.isFullScreen ?? false,
@@ -111,31 +102,34 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
         }
     }
 
+    /// Used when the capture list is not available (no Screen Recording, or
+    /// ScreenCaptureKit is slow): titles and controls still work.
+    private func accessibilityItems(processID: pid_t, axWindows: [WindowInfo]) -> [WindowPreviewItem] {
+        axWindows.compactMap { window in
+            guard let frame = window.frame,
+                  window.isStandard || window.isMinimized,
+                  PreviewWindowFilter.isPreviewable(frame: frame, layer: 0, hasAccessibilityMatch: true, accessibilityAvailable: true)
+            else { return nil }
+            return WindowPreviewItem(window: window)
+        }
+    }
+
     public func captureThumbnail(for windowID: CGWindowID, targetSize: CGSize) async throws -> CGImage {
         var scWindow = lock.withLock { cachedWindows[windowID] }
-
         if scWindow == nil {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-            if let found = content.windows.first(where: { $0.windowID == windowID }) {
-                scWindow = found
-                lock.withLock { cachedWindows[windowID] = found }
-            }
+            scWindow = await shareableContent.windows(timeout: Self.contentTimeout)?.first { $0.windowID == windowID }
         }
-
         guard let targetWindow = scWindow else {
             throw WindowCaptureError.windowNotFound(windowID)
         }
 
         let filter = SCContentFilter(desktopIndependentWindow: targetWindow)
         let config = SCStreamConfiguration()
-
-        let scale: CGFloat = 2.0 // High-DPI / Retina scale for sharp previews
+        let scale: CGFloat = 2.0 // Retina scale for sharp previews
         let aspect = targetWindow.frame.height > 0 ? (targetWindow.frame.width / targetWindow.frame.height) : (16.0 / 10.0)
         let width = max(1, Int(targetSize.width * scale))
-        let height = max(1, Int(CGFloat(width) / aspect))
-
         config.width = width
-        config.height = height
+        config.height = max(1, Int(CGFloat(width) / aspect))
         config.scalesToFit = true
         config.showsCursor = false
 
@@ -144,6 +138,64 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
         } catch {
             throw WindowCaptureError.captureFailed(error.localizedDescription)
         }
+    }
+}
+
+/// Single-flight, short-lived cache of the system window list.
+actor ShareableContentCache {
+    private struct Snapshot: @unchecked Sendable {
+        let date: ContinuousClock.Instant
+        let windows: [SCWindow]
+    }
+
+    private let maxAge: Duration
+    private var latest: Snapshot?
+    private var inFlight: Task<Snapshot?, Never>?
+
+    init(maxAge: Duration = .seconds(1)) {
+        self.maxAge = maxAge
+    }
+
+    /// Fresh or recent windows, or `nil` if the list is unavailable or slower
+    /// than `timeout`. A slow request keeps running and serves the next call.
+    func windows(timeout: Duration) async -> [SCWindow]? {
+        let clock = ContinuousClock()
+        if let latest, latest.date.duration(to: clock.now) < maxAge {
+            return latest.windows
+        }
+        let request = inFlight ?? makeRequest()
+        let snapshot = await withTaskGroup(of: Snapshot?.self) { group in
+            group.addTask { await request.value }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+        if snapshot == nil {
+            AwayLog.previews.notice("capture window list slower than \(timeout); showing titles only")
+        }
+        return snapshot?.windows
+    }
+
+    private func makeRequest() -> Task<Snapshot?, Never> {
+        let task = Task<Snapshot?, Never> {
+            let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            return content.map { Snapshot(date: ContinuousClock().now, windows: $0.windows) }
+        }
+        inFlight = task
+        Task {
+            let snapshot = await task.value
+            finish(snapshot)
+        }
+        return task
+    }
+
+    private func finish(_ snapshot: Snapshot?) {
+        inFlight = nil
+        if let snapshot { latest = snapshot }
     }
 }
 

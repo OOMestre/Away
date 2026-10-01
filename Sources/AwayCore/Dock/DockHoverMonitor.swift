@@ -63,7 +63,10 @@ public final class DockHoverMonitor {
         detach()
         guard let pid = AccessibilityDockItemLocator.dockPID(),
               let list = AccessibilityDockItemLocator.dockList()
-        else { return }
+        else {
+            AwayLog.hover.notice("Dock list not available yet (Accessibility off or Dock starting)")
+            return
+        }
 
         var created: AXObserver?
         let callback: AXObserverCallback = { _, _, _, refcon in
@@ -74,12 +77,15 @@ public final class DockHoverMonitor {
         guard AXObserverCreate(pid, callback, &created) == .success, let created else { return }
 
         let refcon = Unmanaged.passUnretained(self).toOpaque()
-        guard AXObserverAddNotification(created, list.element, kAXSelectedChildrenChangedNotification as CFString, refcon) == .success else {
+        let added = AXObserverAddNotification(created, list.element, kAXSelectedChildrenChangedNotification as CFString, refcon)
+        guard added == .success else {
+            AwayLog.hover.error("could not observe Dock hover: AXError \(added.rawValue)")
             return
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(created), .defaultMode)
         observer = created
         self.list = list
+        AwayLog.hover.info("observing Dock hover (Dock pid \(pid))")
     }
 
     private func detach() {
@@ -92,6 +98,7 @@ public final class DockHoverMonitor {
 
     /// The new Dock needs a moment to build its Accessibility tree.
     private func reattachAfterDockLaunch() {
+        AwayLog.hover.info("Dock relaunched; reattaching")
         detach()
         notify(nil)
         retryTask?.cancel()

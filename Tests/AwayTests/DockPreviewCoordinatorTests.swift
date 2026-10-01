@@ -84,6 +84,28 @@ final class DockPreviewCoordinatorTests: XCTestCase {
         XCTAssertTrue(mockPresenter.isVisible)
     }
 
+    func testSlowListingForPreviousIconNeverOpensStalePanel() async {
+        settingsStore.settings.hoverDelay = 0.05
+        mockCapturer.windowsToReturn = [
+            WindowPreviewItem(id: 1, processID: 1, title: "Slow", frame: CGRect(x: 0, y: 0, width: 600, height: 400)),
+            WindowPreviewItem(id: 2, processID: 2, title: "Fast", frame: CGRect(x: 0, y: 0, width: 600, height: 400)),
+        ]
+        mockCapturer.delays = [1: .milliseconds(400)]
+        let coordinator = makeCoordinator(monitor: DockHoverMonitor())
+        coordinator.processID = { $0.title == "Parsec" ? 1 : 2 }
+        let parsec = DockItem(index: 5, kind: .application, title: "Parsec", frame: .zero, url: nil, isRunning: true)
+        let textEdit = DockItem(index: 9, kind: .application, title: "TextEdit", frame: .zero, url: nil, isRunning: true)
+
+        coordinator.dockHoverChanged(to: parsec)
+        try? await Task.sleep(for: .milliseconds(120))
+        coordinator.dockHoverChanged(to: textEdit)
+        try? await Task.sleep(for: .milliseconds(700))
+
+        XCTAssertTrue(mockPresenter.isVisible)
+        XCTAssertEqual(coordinator.currentDockItem?.title, "TextEdit")
+        XCTAssertEqual(coordinator.currentWindows.map(\.id), [2])
+    }
+
     func testIgnoredAppDoesNotOpen() async {
         settingsStore.settings.hoverDelay = 0.05
         mockCapturer.windowsToReturn = [
@@ -360,10 +382,15 @@ private final class MockDockPreviewPresenter: DockPreviewPresenting, @unchecked 
 private final class MockWindowCapturer: WindowThumbnailCapturing, @unchecked Sendable {
     var previewableWindowsCalledCount = 0
     var windowsToReturn: [WindowPreviewItem] = []
+    var delays: [pid_t: Duration] = [:]
 
     func previewableWindows(for processID: pid_t) async throws -> [WindowPreviewItem] {
         previewableWindowsCalledCount += 1
-        return windowsToReturn
+        if let delay = delays[processID] {
+            // Like ScreenCaptureKit, a slow listing does not stop when cancelled.
+            await Task.detached { try? await Task.sleep(for: delay) }.value
+        }
+        return windowsToReturn.filter { $0.processID == processID }
     }
 
     func captureThumbnail(for windowID: CGWindowID, targetSize: CGSize) async throws -> CGImage {

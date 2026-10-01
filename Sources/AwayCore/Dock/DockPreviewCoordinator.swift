@@ -56,6 +56,9 @@ public final class DockPreviewCoordinator {
     public private(set) var currentWindows: [WindowPreviewItem] = []
     public private(set) var thumbnails: [CGWindowID: CGImage] = [:]
 
+    /// The icon under the mouse right now. Slow lookups started for an older
+    /// icon are dropped instead of opening a stale panel.
+    public private(set) var hoveredItem: DockItem?
     public private(set) var isMouseInDock: Bool = false
     public private(set) var isMouseInPanel: Bool = false
 
@@ -121,6 +124,9 @@ public final class DockPreviewCoordinator {
             return
         }
 
+        hoveredItem = item
+        AwayLog.hover.debug("hover \(item?.title ?? "none", privacy: .public)")
+
         if let item {
             isMouseInDock = true
             dismissTask?.cancel()
@@ -185,7 +191,14 @@ public final class DockPreviewCoordinator {
         do {
             windows = try await thumbnailService.previewableWindows(for: pid)
         } catch {
+            AwayLog.previews.error("listing windows failed: \(error.localizedDescription, privacy: .public)")
             windows = []
+        }
+
+        // The mouse may have moved on while the windows were listed.
+        guard !Task.isCancelled, hoveredItem?.index == item.index, hoveredItem?.title == item.title else {
+            AwayLog.previews.debug("dropped stale preview for \(item.title, privacy: .public)")
+            return
         }
 
         guard !windows.isEmpty || showsWithoutWindows(item) else {
@@ -228,6 +241,7 @@ public final class DockPreviewCoordinator {
         )
 
         let hasScreenRecording = permissions.status(of: .screenRecording) == .granted
+        AwayLog.previews.debug("show \(item.title, privacy: .public) with \(windows.count) windows")
 
         presenter.show(
             item: item,
