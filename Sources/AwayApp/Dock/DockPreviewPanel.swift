@@ -21,7 +21,19 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
     private var onActionCallback: ((WindowControlAction, WindowPreviewItem) -> Void)?
     private var onRequestScreenRecordingCallback: (() -> Void)?
 
-    init() {
+    private let quickActions: AppQuickActionManaging
+    private let responsiveness: AppResponsivenessProbing
+    /// Last probe result per app; `nil` while the check is running.
+    private var isResponsive: [pid_t: Bool] = [:]
+    private var probeTask: Task<Void, Never>?
+
+    /// Extra content for a Dock item, such as media controls. Set by features
+    /// that add to the preview instead of opening their own panel.
+    var accessoryProvider: ((DockItem) -> AnyView?)?
+
+    init(quickActions: AppQuickActionManaging, responsiveness: AppResponsivenessProbing = AccessibilityAppResponsivenessProbe()) {
+        self.quickActions = quickActions
+        self.responsiveness = responsiveness
         super.init(
             contentRect: .zero,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -73,9 +85,10 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
         self.onActionCallback = onAction
         self.onRequestScreenRecordingCallback = onRequestScreenRecording
 
+        setFrame(targetFrame, display: false)
         renderContentView()
-        setFrame(targetFrame, display: true)
         orderFront(nil)
+        probeResponsiveness(of: item)
 
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if !reduceMotion {
@@ -103,6 +116,16 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
         let appIcon = item.url.flatMap { NSWorkspace.shared.icon(forFile: $0.path) }
             ?? NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleIdentifier ?? "").first?.icon
 
+        let footer = settings.showQuickActions ? item.runningProcessID.map { pid in
+            DockPreviewFooterView(
+                processID: pid,
+                appName: item.title,
+                isResponsive: isResponsive[pid],
+                actions: quickActions,
+                onFinished: { [weak self] in self?.hide(animated: true) }
+            )
+        } : nil
+
         let view = DockPreviewContentView(
             appTitle: item.title,
             appIcon: appIcon,
@@ -112,6 +135,8 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
             showTitles: settings.showTitles,
             showWindowButtons: settings.showWindowButtons,
             hasScreenRecording: hasScreenRecording,
+            footer: footer,
+            accessory: accessoryProvider?(item),
             onSelect: { [weak self] window in
                 self?.onSelectCallback?(window)
             },
@@ -136,9 +161,39 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
             contentView = hostingView
             self.hostingView = hostingView
         }
+        fitHeightToContent()
+    }
+
+    /// The footer and accessories change the height; keep the edge next to
+    /// the Dock fixed and grow away from it.
+    private func fitHeightToContent() {
+        guard let hostingView else { return }
+        let height = hostingView.fittingSize.height
+        guard height > 0, abs(height - frame.height) > 0.5 else { return }
+        var newFrame = frame
+        newFrame.size.height = height
+        if let visible = screen?.visibleFrame, newFrame.maxY > visible.maxY {
+            newFrame.origin.y = max(visible.minY, visible.maxY - height)
+        }
+        setFrame(newFrame, display: true)
+    }
+
+    /// AX calls to a hung app block for the messaging timeout, so never on the main thread.
+    private func probeResponsiveness(of item: DockItem) {
+        probeTask?.cancel()
+        guard let pid = item.runningProcessID else { return }
+        isResponsive[pid] = nil
+        let probe = responsiveness
+        probeTask = Task { [weak self] in
+            let result = await Task.detached { probe.probe(pid: pid) }.value
+            guard let self, !Task.isCancelled, self.currentItem?.runningProcessID == pid else { return }
+            self.isResponsive[pid] = result != .timedOut
+            self.renderContentView()
+        }
     }
 
     func hide(animated: Bool) {
+        probeTask?.cancel()
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if animated && !reduceMotion && alphaValue > 0 {
             NSAnimationContext.runAnimationGroup({ context in

@@ -15,19 +15,22 @@ public struct DockPreviewSettings: Equatable, Sendable {
     public var thumbnailWidth: CGFloat
     public var showTitles: Bool
     public var showWindowButtons: Bool
+    public var showQuickActions: Bool
 
     public init(
         isEnabled: Bool = true,
         hoverDelay: TimeInterval = Self.defaultHoverDelay,
         thumbnailWidth: CGFloat = Self.defaultThumbnailWidth,
         showTitles: Bool = true,
-        showWindowButtons: Bool = true
+        showWindowButtons: Bool = true,
+        showQuickActions: Bool = true
     ) {
         self.isEnabled = isEnabled
         self.hoverDelay = min(max(hoverDelay, Self.minHoverDelay), Self.maxHoverDelay)
         self.thumbnailWidth = min(max(thumbnailWidth, Self.minThumbnailWidth), Self.maxThumbnailWidth)
         self.showTitles = showTitles
         self.showWindowButtons = showWindowButtons
+        self.showQuickActions = showQuickActions
     }
 }
 
@@ -40,6 +43,7 @@ public final class DockPreviewSettingsStore {
     public static let widthKey = "dock.previews.width"
     public static let titlesKey = "dock.previews.showTitles"
     public static let showButtonsKey = "dock.previews.showButtons"
+    public static let quickActionsKey = "dock.previews.showQuickActions"
 
     private let defaults: UserDefaults
 
@@ -55,13 +59,15 @@ public final class DockPreviewSettingsStore {
         let width = defaults.object(forKey: Self.widthKey) as? Double ?? Double(DockPreviewSettings.defaultThumbnailWidth)
         let titles = defaults.object(forKey: Self.titlesKey) as? Bool ?? true
         let showButtons = defaults.object(forKey: Self.showButtonsKey) as? Bool ?? true
+        let quickActions = defaults.object(forKey: Self.quickActionsKey) as? Bool ?? true
 
         self.settings = DockPreviewSettings(
             isEnabled: isEnabled,
             hoverDelay: delay,
             thumbnailWidth: CGFloat(width),
             showTitles: titles,
-            showWindowButtons: showButtons
+            showWindowButtons: showButtons,
+            showQuickActions: quickActions
         )
     }
 
@@ -71,5 +77,6 @@ public final class DockPreviewSettingsStore {
         defaults.set(Double(settings.thumbnailWidth), forKey: Self.widthKey)
         defaults.set(settings.showTitles, forKey: Self.titlesKey)
         defaults.set(settings.showWindowButtons, forKey: Self.showButtonsKey)
+        defaults.set(settings.showQuickActions, forKey: Self.quickActionsKey)
     }
 }

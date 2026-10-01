@@ -13,6 +13,11 @@ struct DockPreviewContentView: View {
     let showWindowButtons: Bool
     let hasScreenRecording: Bool
 
+    /// Quick actions footer; `nil` hides it.
+    let footer: DockPreviewFooterView?
+    /// Extra content below the windows, such as media controls.
+    let accessory: AnyView?
+
     let onSelect: (WindowPreviewItem) -> Void
     let onAction: (WindowControlAction, WindowPreviewItem) -> Void
     let onRequestScreenRecording: () -> Void
@@ -26,6 +31,8 @@ struct DockPreviewContentView: View {
         showTitles: Bool,
         showWindowButtons: Bool = true,
         hasScreenRecording: Bool,
+        footer: DockPreviewFooterView? = nil,
+        accessory: AnyView? = nil,
         onSelect: @escaping (WindowPreviewItem) -> Void,
         onAction: @escaping (WindowControlAction, WindowPreviewItem) -> Void,
         onRequestScreenRecording: @escaping () -> Void
@@ -38,6 +45,8 @@ struct DockPreviewContentView: View {
         self.showTitles = showTitles
         self.showWindowButtons = showWindowButtons
         self.hasScreenRecording = hasScreenRecording
+        self.footer = footer
+        self.accessory = accessory
         self.onSelect = onSelect
         self.onAction = onAction
         self.onRequestScreenRecording = onRequestScreenRecording
@@ -53,7 +62,18 @@ struct DockPreviewContentView: View {
                 permissionCallout
             }
 
-            cardsRow
+            if !windows.isEmpty {
+                cardsRow
+            }
+
+            if let accessory {
+                accessory
+            }
+
+            if let footer {
+                Divider()
+                footer
+            }
         }
         .padding(14)
         .background {

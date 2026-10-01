@@ -15,6 +15,7 @@ final class AppServices {
     let permissions: PermissionChecking
     let dockHover: DockHoverMonitor
     let unresponsiveAlerts: DockUnresponsiveAlertController
+    let appActions: AppQuickActionManaging
     let previewSettings: DockPreviewSettingsStore
     let windowThumbnails: WindowThumbnailCapturing
     let previewCoordinator: DockPreviewCoordinator
@@ -35,10 +36,11 @@ final class AppServices {
         permissions = SystemPermissionsService()
         dockHover = DockHoverMonitor()
         unresponsiveAlerts = DockUnresponsiveAlertController(dockItems: dockItems, permissions: permissions)
+        appActions = SystemAppQuickActionService()
 
         let settingsStore = DockPreviewSettingsStore()
         let thumbnailService = ScreenCaptureKitThumbnailService(windowManager: windows)
-        let panel = DockPreviewPanel()
+        let panel = DockPreviewPanel(quickActions: appActions)
         previewSettings = settingsStore
         windowThumbnails = thumbnailService
         previewCoordinator = DockPreviewCoordinator(

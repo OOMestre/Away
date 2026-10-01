@@ -77,6 +77,12 @@ struct DockWindowPreviewSection: View {
                 )
                 .help("Display macOS Close, Minimize and Full Screen buttons on thumbnail hover.")
 
+                Toggle(
+                    "Show app quick actions",
+                    isOn: $settingsStore.settings.showQuickActions
+                )
+                .help("New Window, Relaunch and Force Quit at the bottom of the preview.")
+
                 if !hasScreenRecording {
                     LabeledContent {
                         Button("Allow…") {
