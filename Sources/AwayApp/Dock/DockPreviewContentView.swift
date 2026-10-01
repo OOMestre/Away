@@ -43,38 +43,6 @@ struct DockPreviewContentView: View {
         self.onRequestScreenRecording = onRequestScreenRecording
     }
 
-    init(
-        appTitle: String,
-        appIcon: NSImage?,
-        windows: [WindowPreviewItem],
-        thumbnails: [CGWindowID: CGImage],
-        thumbnailWidth: CGFloat,
-        showTitles: Bool,
-        showWindowButtons: Bool = true,
-        hasScreenRecording: Bool,
-        onSelect: @escaping (WindowPreviewItem) -> Void,
-        onClose: @escaping (WindowPreviewItem) -> Void,
-        onRequestScreenRecording: @escaping () -> Void
-    ) {
-        self.init(
-            appTitle: appTitle,
-            appIcon: appIcon,
-            windows: windows,
-            thumbnails: thumbnails,
-            thumbnailWidth: thumbnailWidth,
-            showTitles: showTitles,
-            showWindowButtons: showWindowButtons,
-            hasScreenRecording: hasScreenRecording,
-            onSelect: onSelect,
-            onAction: { action, window in
-                if action == .close {
-                    onClose(window)
-                }
-            },
-            onRequestScreenRecording: onRequestScreenRecording
-        )
-    }
-
     @State private var hoveredWindowID: CGWindowID?
 
     var body: some View {
@@ -192,6 +160,7 @@ struct DockPreviewContentView: View {
                     }
                 }
                 .frame(width: thumbnailWidth, height: cardHeight)
+                .opacity(window.isMinimized ? 0.55 : 1)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(
@@ -241,11 +210,8 @@ struct DockPreviewContentView: View {
 
             // Window title
             if showTitles {
-                Text(window.title.isEmpty ? appTitle : window.title)
-                    .font(.caption2)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .frame(width: thumbnailWidth, alignment: .leading)
+                DockWindowTitleView(title: window.title, fallbackAppName: appTitle, maxWidth: thumbnailWidth)
+                    .foregroundStyle(window.isMinimized ? .secondary : .primary)
             }
         }
         .contentShape(Rectangle())
@@ -257,7 +223,7 @@ struct DockPreviewContentView: View {
         }
         .help(window.isMinimized ? "Click to restore and bring window to front" : "Click to bring window to front")
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(window.title.isEmpty ? appTitle : window.title)
+        .accessibilityLabel(WindowTitleFormatter.displayTitle(for: window.title, fallbackAppName: appTitle))
         .accessibilityHint("Click to bring this window to the front")
         .accessibilityAction(named: "Focus window") {
             onSelect(window)

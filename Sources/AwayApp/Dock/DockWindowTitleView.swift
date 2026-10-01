@@ -2,13 +2,13 @@ import AwayCore
 import SwiftUI
 
 /// Displays a window title underneath a thumbnail, truncated with an ellipsis when long.
-public struct DockWindowTitleView: View {
-    public let title: String
-    public let fallbackAppName: String?
-    public let maxWidth: CGFloat?
-    public let alignment: Alignment
+struct DockWindowTitleView: View {
+    let title: String
+    let fallbackAppName: String?
+    let maxWidth: CGFloat?
+    let alignment: Alignment
 
-    public init(
+    init(
         title: String,
         fallbackAppName: String? = nil,
         maxWidth: CGFloat? = nil,
@@ -20,29 +20,14 @@ public struct DockWindowTitleView: View {
         self.alignment = alignment
     }
 
-    public init(
-        window: WindowInfo,
-        fallbackAppName: String? = nil,
-        maxWidth: CGFloat? = nil,
-        alignment: Alignment = .leading
-    ) {
-        self.init(
-            title: window.title,
-            fallbackAppName: fallbackAppName,
-            maxWidth: maxWidth,
-            alignment: alignment
-        )
-    }
-
-    public var displayTitle: String {
+    var displayTitle: String {
         WindowTitleFormatter.displayTitle(for: title, fallbackAppName: fallbackAppName)
     }
 
-    public var body: some View {
+    var body: some View {
         Text(displayTitle)
             .font(.caption2)
             .fontWeight(.medium)
-            .foregroundStyle(.primary)
             .lineLimit(1)
             .truncationMode(.tail)
             .frame(maxWidth: maxWidth, alignment: alignment)

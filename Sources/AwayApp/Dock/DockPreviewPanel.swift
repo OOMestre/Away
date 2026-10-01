@@ -8,7 +8,9 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
     var onMouseEnter: (() -> Void)?
     var onMouseExit: (() -> Void)?
 
-    private var trackingArea: NSTrackingArea?
+    /// One hosting view for the panel's lifetime. Replacing it on every update
+    /// would drop the mouse tracking area and the SwiftUI hover state.
+    private var hostingView: NSHostingView<DockPreviewContentView>?
 
     private var currentItem: DockItem?
     private var currentWindows: [WindowPreviewItem] = []
@@ -40,22 +42,6 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
 
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
-
-    func updateTrackingAreas() {
-        if let contentView {
-            if let trackingArea {
-                contentView.removeTrackingArea(trackingArea)
-            }
-            let area = NSTrackingArea(
-                rect: contentView.bounds,
-                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-                owner: self,
-                userInfo: nil
-            )
-            contentView.addTrackingArea(area)
-            self.trackingArea = area
-        }
-    }
 
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
@@ -89,7 +75,6 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
 
         renderContentView()
         setFrame(targetFrame, display: true)
-        updateTrackingAreas()
         orderFront(nil)
 
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -125,6 +110,7 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
             thumbnails: currentThumbnails,
             thumbnailWidth: settings.thumbnailWidth,
             showTitles: settings.showTitles,
+            showWindowButtons: settings.showWindowButtons,
             hasScreenRecording: hasScreenRecording,
             onSelect: { [weak self] window in
                 self?.onSelectCallback?(window)
@@ -137,7 +123,19 @@ final class DockPreviewPanel: NSPanel, DockPreviewPresenting {
             }
         )
 
-        contentView = NSHostingView(rootView: view)
+        if let hostingView {
+            hostingView.rootView = view
+        } else {
+            let hostingView = NSHostingView(rootView: view)
+            hostingView.addTrackingArea(NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            ))
+            contentView = hostingView
+            self.hostingView = hostingView
+        }
     }
 
     func hide(animated: Bool) {

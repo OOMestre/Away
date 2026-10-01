@@ -78,24 +78,18 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
             return true
         }
 
+        // Only the windows of the hovered app are kept, so closed windows
+        // never accumulate in the cache.
         lock.withLock {
-            for window in appWindows {
-                cachedWindows[window.windowID] = window
-            }
+            cachedWindows = Dictionary(appWindows.map { ($0.windowID, $0) }, uniquingKeysWith: { first, _ in first })
         }
 
         return appWindows.map { scWindow in
-            let matchedAX = axWindows.first { ax in
-                if let title = scWindow.title, !title.isEmpty, title == ax.title {
-                    return true
-                }
-                if let axFrame = ax.frame {
-                    let dx = abs(axFrame.origin.x - scWindow.frame.origin.x)
-                    let dy = abs(axFrame.origin.y - scWindow.frame.origin.y)
-                    return dx < 10 && dy < 10
-                }
-                return false
-            }
+            let matchedAX = WindowMatcher.match(
+                frame: scWindow.frame,
+                title: scWindow.title,
+                in: axWindows.map { (frame: $0.frame, title: $0.title) }
+            ).map { axWindows[$0] }
 
             let scTitle = scWindow.title ?? ""
             let title = !scTitle.isEmpty ? scTitle : (matchedAX?.title ?? "")
@@ -146,5 +140,31 @@ public final class ScreenCaptureKitThumbnailService: WindowThumbnailCapturing, @
         } catch {
             throw WindowCaptureError.captureFailed(error.localizedDescription)
         }
+    }
+}
+
+/// Pairs a ScreenCaptureKit window with its Accessibility window. Both use
+/// top-left global coordinates. Position wins over title, because several
+/// windows of one app often share a title.
+public enum WindowMatcher {
+    public static let tolerance: CGFloat = 10
+
+    public static func match(frame: CGRect, title: String?, in candidates: [(frame: CGRect?, title: String)]) -> Int? {
+        func isClose(_ other: CGRect?) -> Bool {
+            guard let other else { return false }
+            return abs(other.minX - frame.minX) < tolerance
+                && abs(other.minY - frame.minY) < tolerance
+                && abs(other.width - frame.width) < tolerance
+                && abs(other.height - frame.height) < tolerance
+        }
+
+        let byFrame = candidates.indices.filter { isClose(candidates[$0].frame) }
+        if byFrame.count == 1 { return byFrame[0] }
+        if let title, !title.isEmpty {
+            let pool = byFrame.isEmpty ? Array(candidates.indices) : byFrame
+            let byTitle = pool.filter { candidates[$0].title == title }
+            if byTitle.count == 1 { return byTitle[0] }
+        }
+        return byFrame.first
     }
 }

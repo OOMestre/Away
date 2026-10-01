@@ -129,3 +129,29 @@ private final class MockThumbnailCapturer: WindowThumbnailCapturing, @unchecked 
         return image
     }
 }
+
+final class WindowMatcherTests: XCTestCase {
+    private let left = CGRect(x: 0, y: 25, width: 800, height: 600)
+    private let right = CGRect(x: 820, y: 25, width: 800, height: 600)
+
+    func testPrefersPositionOverSharedTitle() {
+        let candidates: [(frame: CGRect?, title: String)] = [(left, "Downloads"), (right, "Downloads")]
+        XCTAssertEqual(WindowMatcher.match(frame: right, title: "Downloads", in: candidates), 1)
+    }
+
+    func testUsesTitleToBreakPositionTies() {
+        let candidates: [(frame: CGRect?, title: String)] = [(left, "A"), (left, "B")]
+        XCTAssertEqual(WindowMatcher.match(frame: left, title: "B", in: candidates), 1)
+    }
+
+    func testFallsBackToUniqueTitleWhenWindowMoved() {
+        let candidates: [(frame: CGRect?, title: String)] = [(nil, "Inbox"), (right, "Drafts")]
+        XCTAssertEqual(WindowMatcher.match(frame: left, title: "Inbox", in: candidates), 0)
+    }
+
+    func testReturnsNilWithoutEvidence() {
+        let candidates: [(frame: CGRect?, title: String)] = [(right, "Same"), (nil, "Same")]
+        XCTAssertNil(WindowMatcher.match(frame: left, title: "Same", in: candidates))
+        XCTAssertNil(WindowMatcher.match(frame: left, title: nil, in: candidates))
+    }
+}
