@@ -59,8 +59,12 @@ public actor DockPreferencesStore {
 
     /// Writes the changes and restarts the Dock once. Changes that would not
     /// alter the current value are skipped; if nothing changes, nothing happens.
+    ///
+    /// `recordUndo: false` is for state Away maintains on its own (for example
+    /// hiding the native dots while custom indicators are on). The original
+    /// backup is still taken, but the user's Undo history is left untouched.
     @discardableResult
-    public func apply(_ changes: [DockPreferenceChange]) throws -> Bool {
+    public func apply(_ changes: [DockPreferenceChange], recordUndo: Bool = true) throws -> Bool {
         var previousValues: [String: PropertyListValue] = [:]
         var absentKeys: [String] = []
         var effective: [DockPreferenceChange] = []
@@ -77,9 +81,11 @@ public actor DockPreferencesStore {
         guard !effective.isEmpty else { return false }
 
         try ensureOriginalBackup()
-        var history = try backups.loadHistory()
-        history.append(DockUndoEntry(date: now(), previousValues: previousValues, absentKeys: absentKeys))
-        try backups.saveHistory(Array(history.suffix(Self.historyLimit)))
+        if recordUndo {
+            var history = try backups.loadHistory()
+            history.append(DockUndoEntry(date: now(), previousValues: previousValues, absentKeys: absentKeys))
+            try backups.saveHistory(Array(history.suffix(Self.historyLimit)))
+        }
 
         for change in effective {
             domain.setValue(change.value, forKey: change.key.rawValue)

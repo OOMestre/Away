@@ -179,3 +179,15 @@ final class DockPreferencesStoreTests: XCTestCase {
         XCTAssertEqual(try backups.loadHistory().count, DockPreferencesStore.historyLimit)
     }
 }
+
+extension DockPreferencesStoreTests {
+    func testUnrecordedChangesKeepUndoHistoryButTakeOriginalBackup() async throws {
+        try await store.apply([DockPreferenceChange(.showProcessIndicators, .bool(false))], recordUndo: false)
+
+        XCTAssertEqual(domain.value(forKey: "show-process-indicators"), .bool(false))
+        XCTAssertNil(try backups.loadOriginal()?.values["show-process-indicators"])
+        XCTAssertNotNil(try backups.loadOriginal())
+        let canUndo = await store.canUndo
+        XCTAssertFalse(canUndo)
+    }
+}

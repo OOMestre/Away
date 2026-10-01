@@ -21,22 +21,31 @@ final class AppServices {
     let previewSettings: DockPreviewSettingsStore
     let windowThumbnails: WindowThumbnailCapturing
     let previewCoordinator: DockPreviewCoordinator
+    let runningIndicators: DockRunningIndicators?
+    let indicatorOverlay: DockIndicatorOverlay
 
     /// Set when the backup folder could not be created; Dock changes stay disabled.
     let setupError: String?
 
     init() {
         do {
-            dockPreferences = DockPreferencesStore(backups: try FileDockBackupStore.applicationSupport())
+            let store = DockPreferencesStore(backups: try FileDockBackupStore.applicationSupport())
+            dockPreferences = store
+            runningIndicators = DockRunningIndicators(
+                dock: store,
+                settings: SystemPreferencesDomain(domain: Bundle.main.bundleIdentifier ?? "com.oomestre.away")
+            )
             setupError = nil
         } catch {
             dockPreferences = nil
+            runningIndicators = nil
             setupError = error.localizedDescription
         }
         dockItems = AccessibilityDockItemLocator()
         windows = AccessibilityWindowService()
         permissions = SystemPermissionsService()
         dockHover = DockHoverMonitor()
+        indicatorOverlay = DockIndicatorOverlay(locator: dockItems, hover: dockHover)
         unresponsiveAlerts = DockUnresponsiveAlertController(dockItems: dockItems, permissions: permissions)
         appActions = SystemAppQuickActionService()
         media = AppleScriptMediaController()
@@ -67,5 +76,34 @@ final class AppServices {
             item.bundleIdentifier.flatMap(MediaApp.init(rawValue:)) != nil
         }
         previewCoordinator.start()
+    }
+
+    func resumeIndicators() async {
+        guard let runningIndicators else { return }
+        do {
+            guard permissions.status(of: .accessibility) == .granted else {
+                indicatorOverlay.stop()
+                try await runningIndicators.suspend()
+                return
+            }
+            try await runningIndicators.resume()
+            if await runningIndicators.isEnabled {
+                indicatorOverlay.start(
+                    style: await runningIndicators.style,
+                    colorHex: await runningIndicators.colorHex
+                )
+            }
+        } catch {
+            indicatorOverlay.stop()
+        }
+    }
+
+    func suspendIndicators() async throws {
+        let wasEnabled = await runningIndicators?.isEnabled ?? false
+        try await runningIndicators?.suspend()
+        indicatorOverlay.stop()
+        // The shared Dock restarter debounces by 400 ms; keep Away alive until
+        // its restart request has run so the native dots are visible on exit.
+        if wasEnabled { try? await Task.sleep(for: .milliseconds(650)) }
     }
 }

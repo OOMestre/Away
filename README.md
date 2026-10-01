@@ -38,6 +38,8 @@ macOS looks great out of the box, but it doesn't give you many ways to make it f
 - **Native by design.** Built entirely with Swift, SwiftUI, and AppKit. No Electron, no web views, no third-party dependencies.
 - **Reversible.** Every change Away makes to your system can be undone, and you can always go back to the macOS defaults.
 
+The Dock module includes custom running app indicators. Choose a line, colored bar or glow and its color in **Dock → Running App Indicators**. This feature needs Accessibility permission and Away to remain open; native Dock dots return when you turn it off or quit Away.
+
 ## Roadmap
 
 | Module | Status | What it covers |
