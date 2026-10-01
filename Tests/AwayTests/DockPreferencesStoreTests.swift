@@ -50,6 +50,25 @@ final class DockPreferencesStoreTests: XCTestCase {
         XCTAssertFalse(canUndo)
     }
 
+    func testRunningAppsOnlyCanBeTurnedOnOffAndUndone() async throws {
+        try await store.apply([DockPreferenceChange(.staticOnly, .bool(true))])
+        let enabled = await store.value(for: .staticOnly)
+        XCTAssertEqual(enabled, .bool(true))
+
+        try await store.apply([DockPreferenceChange(.staticOnly, .bool(false))])
+        let disabled = await store.value(for: .staticOnly)
+        XCTAssertEqual(disabled, .bool(false))
+
+        try await store.undo()
+        let restored = await store.value(for: .staticOnly)
+        XCTAssertEqual(restored, .bool(true))
+
+        try await store.undo()
+        let original = await store.value(for: .staticOnly)
+        XCTAssertNil(original)
+        XCTAssertEqual(restarter.restarts, 4)
+    }
+
     func testFirstApplyCapturesOriginalOnlyOnce() async throws {
         try await store.apply([DockPreferenceChange(.tileSize, .int(64))])
         try await store.apply([DockPreferenceChange(.tileSize, .int(32))])
