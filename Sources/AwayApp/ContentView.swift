@@ -13,8 +13,13 @@ struct ContentView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200)
         } detail: {
-            if let selection {
-                AreaPlaceholderView(area: selection)
+            switch selection {
+            case .dock:
+                DockView()
+            case let area?:
+                AreaPlaceholderView(area: area)
+            case nil:
+                EmptyView()
             }
         }
     }
