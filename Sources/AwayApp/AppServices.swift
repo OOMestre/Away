@@ -16,6 +16,8 @@ final class AppServices {
     let dockHover: DockHoverMonitor
     let unresponsiveAlerts: DockUnresponsiveAlertController
     let appActions: AppQuickActionManaging
+    let media: MediaControlling
+    let mediaControls: DockMediaControlsModel
     let previewSettings: DockPreviewSettingsStore
     let windowThumbnails: WindowThumbnailCapturing
     let previewCoordinator: DockPreviewCoordinator
@@ -37,10 +39,18 @@ final class AppServices {
         dockHover = DockHoverMonitor()
         unresponsiveAlerts = DockUnresponsiveAlertController(dockItems: dockItems, permissions: permissions)
         appActions = SystemAppQuickActionService()
+        media = AppleScriptMediaController()
+        let mediaControls = DockMediaControlsModel(media: media, permissions: permissions)
+        self.mediaControls = mediaControls
 
         let settingsStore = DockPreviewSettingsStore()
         let thumbnailService = ScreenCaptureKitThumbnailService(windowManager: windows)
         let panel = DockPreviewPanel(quickActions: appActions)
+        panel.accessoryProvider = { item in
+            guard let app = item.bundleIdentifier.flatMap(MediaApp.init(rawValue:)) else { return nil }
+            mediaControls.show(app)
+            return AnyView(DockMediaControlsView(model: mediaControls))
+        }
         previewSettings = settingsStore
         windowThumbnails = thumbnailService
         previewCoordinator = DockPreviewCoordinator(
@@ -52,6 +62,10 @@ final class AppServices {
             dockItems: dockItems,
             presenter: panel
         )
+        // Media players stay useful with every window closed.
+        previewCoordinator.showsWithoutWindows = { item in
+            item.bundleIdentifier.flatMap(MediaApp.init(rawValue:)) != nil
+        }
         previewCoordinator.start()
     }
 }

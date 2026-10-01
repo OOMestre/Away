@@ -31,6 +31,59 @@ final class DockPreviewCoordinatorTests: XCTestCase {
         try await super.tearDown()
     }
 
+    private func makeCoordinator(monitor: DockHoverMonitor) -> DockPreviewCoordinator {
+        let coordinator = DockPreviewCoordinator(
+            dockHover: monitor,
+            settingsStore: settingsStore,
+            thumbnailService: mockCapturer,
+            windowManager: mockWindowManager,
+            permissions: mockPermissions,
+            dockItems: mockLocator,
+            presenter: mockPresenter
+        )
+        coordinator.processID = { _ in 999 }
+        return coordinator
+    }
+
+    private let musicItem = DockItem(
+        index: 2,
+        kind: .application,
+        title: "Music",
+        frame: CGRect(x: 200, y: 10, width: 48, height: 48),
+        url: nil,
+        isRunning: true
+    )
+
+    func testHoverOpensPanelWithWindowsAfterDelay() async {
+        settingsStore.settings.hoverDelay = 0.05
+        mockCapturer.windowsToReturn = [
+            WindowPreviewItem(id: 1, processID: 999, title: "Doc", frame: CGRect(x: 0, y: 0, width: 600, height: 400))
+        ]
+        let coordinator = makeCoordinator(monitor: DockHoverMonitor())
+
+        coordinator.dockHoverChanged(to: musicItem)
+        try? await Task.sleep(for: .milliseconds(300))
+
+        XCTAssertTrue(mockPresenter.isVisible)
+        XCTAssertEqual(coordinator.currentWindows.map(\.id), [1])
+    }
+
+    func testAppWithoutWindowsOpensOnlyWhenAllowed() async {
+        settingsStore.settings.hoverDelay = 0.05
+        mockCapturer.windowsToReturn = []
+        let coordinator = makeCoordinator(monitor: DockHoverMonitor())
+
+        coordinator.dockHoverChanged(to: musicItem)
+        try? await Task.sleep(for: .milliseconds(300))
+        XCTAssertFalse(mockPresenter.isVisible)
+
+        coordinator.showsWithoutWindows = { $0.title == "Music" }
+        coordinator.dockHoverChanged(to: nil)
+        coordinator.dockHoverChanged(to: musicItem)
+        try? await Task.sleep(for: .milliseconds(300))
+        XCTAssertTrue(mockPresenter.isVisible)
+    }
+
     func testHoverOnNonRunningItemDoesNotOpen() async {
         let monitor = DockHoverMonitor()
         let coordinator = DockPreviewCoordinator(

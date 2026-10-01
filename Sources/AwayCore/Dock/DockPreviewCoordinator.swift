@@ -41,6 +41,13 @@ public final class DockPreviewCoordinator {
     private let dockItems: DockItemLocating
     private let presenter: DockPreviewPresenting
 
+    /// Items that open the panel even without windows (for example media
+    /// players, whose preview also shows playback controls).
+    public var showsWithoutWindows: (DockItem) -> Bool = { _ in false }
+
+    /// Finds the process behind a Dock item. Injectable so tests need no real app.
+    public var processID: (DockItem) -> pid_t? = { $0.runningProcessID }
+
     public private(set) var currentDockItem: DockItem?
     public private(set) var currentWindows: [WindowPreviewItem] = []
     public private(set) var thumbnails: [CGWindowID: CGImage] = [:]
@@ -164,7 +171,7 @@ public final class DockPreviewCoordinator {
     }
 
     private func showPreviews(for item: DockItem) async {
-        guard let pid = item.runningProcessID else {
+        guard let pid = processID(item) else {
             hidePanel()
             return
         }
@@ -176,7 +183,7 @@ public final class DockPreviewCoordinator {
             windows = []
         }
 
-        guard !windows.isEmpty else {
+        guard !windows.isEmpty || showsWithoutWindows(item) else {
             hidePanel()
             return
         }
@@ -273,7 +280,7 @@ public final class DockPreviewCoordinator {
             currentWindows.removeAll { $0.id == window.id }
             thumbnails.removeValue(forKey: window.id)
 
-            if currentWindows.isEmpty {
+            if currentWindows.isEmpty, !(currentDockItem.map(showsWithoutWindows) ?? false) {
                 hidePanel()
             } else {
                 presenter.update(windows: currentWindows, thumbnails: thumbnails)
