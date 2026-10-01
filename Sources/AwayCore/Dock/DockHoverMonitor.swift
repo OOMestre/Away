@@ -9,8 +9,9 @@ import ApplicationServices
 /// the Accessibility observer holds an unretained reference to the monitor.
 @MainActor
 public final class DockHoverMonitor {
-    /// Called with the hovered item, or `nil` when the mouse leaves the icons.
-    public var onChange: ((DockItem?) -> Void)?
+    public typealias Handler = @MainActor (DockItem?) -> Void
+
+    private var observers: [UUID: Handler] = [:]
 
     private var observer: AXObserver?
     private var list: AccessibilityElement?
@@ -20,6 +21,21 @@ public final class DockHoverMonitor {
     public init() {}
 
     public var isRunning: Bool { observer != nil }
+
+    /// Registers a handler called with the hovered item, or `nil` when the
+    /// mouse leaves the icons. Several features can observe at the same time;
+    /// keep the returned token alive for as long as you want updates.
+    public func addObserver(_ handler: @escaping Handler) -> DockHoverObservation {
+        let id = UUID()
+        observers[id] = handler
+        return DockHoverObservation { [weak self] in self?.observers[id] = nil }
+    }
+
+    func notify(_ item: DockItem?) {
+        for handler in observers.values {
+            handler(item)
+        }
+    }
 
     public func start() {
         guard launchObserver == nil else { return }
@@ -77,7 +93,7 @@ public final class DockHoverMonitor {
     /// The new Dock needs a moment to build its Accessibility tree.
     private func reattachAfterDockLaunch() {
         detach()
-        onChange?(nil)
+        notify(nil)
         retryTask?.cancel()
         retryTask = Task { [weak self] in
             for _ in 0..<10 {
@@ -93,6 +109,28 @@ public final class DockHoverMonitor {
         guard let list else { return }
         let selected = list.elements(kAXSelectedChildrenAttribute).first
         let index = selected.flatMap { list.children.firstIndex(of: $0) } ?? 0
-        onChange?(selected.flatMap { AccessibilityDockItemLocator.item(from: $0, index: index) })
+        notify(selected.flatMap { AccessibilityDockItemLocator.item(from: $0, index: index) })
+    }
+}
+
+/// Keeps a `DockHoverMonitor` handler registered until cancelled or released.
+@MainActor
+public final class DockHoverObservation {
+    private var onCancel: (() -> Void)?
+
+    init(onCancel: @escaping () -> Void) {
+        self.onCancel = onCancel
+    }
+
+    public func cancel() {
+        onCancel?()
+        onCancel = nil
+    }
+
+    deinit {
+        // `deinit` is nonisolated; hop to the main actor to unregister.
+        if let onCancel {
+            Task { @MainActor in onCancel() }
+        }
     }
 }
