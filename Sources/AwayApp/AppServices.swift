@@ -14,6 +14,7 @@ final class AppServices {
     let windows: WindowManaging
     let permissions: PermissionChecking
     let dockHover: DockHoverMonitor
+    let unresponsiveAlerts: DockUnresponsiveAlertController
 
     /// Set when the backup folder could not be created; Dock changes stay disabled.
     let setupError: String?
@@ -30,5 +31,6 @@ final class AppServices {
         windows = AccessibilityWindowService()
         permissions = SystemPermissionsService()
         dockHover = DockHoverMonitor()
+        unresponsiveAlerts = DockUnresponsiveAlertController(dockItems: dockItems, permissions: permissions)
     }
 }
