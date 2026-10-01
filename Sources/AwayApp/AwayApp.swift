@@ -2,6 +2,7 @@ import AwayCore
 import SwiftUI
 
 @main
+@MainActor
 struct AwayApp: App {
     @State private var services = AppServices()
 
