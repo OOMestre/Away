@@ -7,14 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased]
 
 ### Added
+- **Dock window previews:** Hover a running app in the Dock to see live thumbnails of its windows with titles. Click a thumbnail to bring that window forward (restoring it if minimized), use the close, minimize and full screen buttons, or the New Window, Relaunch and Force Quit actions. Minimized windows appear dimmed with a badge. Music and Spotify previews include playback controls.
 - **Dock running apps only:** Toggle whether the Dock shows only open apps, with Away's existing backup and undo support.
 - **Unresponsive app alerts:** Detect repeated Accessibility timeouts in open Dock apps, show an icon alert, and offer a confirmed Force Quit action.
 - **Dock auto-hide:** Controls for the show delay and animation duration, an instant preset, and a button to restore macOS defaults.
 - **Dock spacers:** Add large or small spacers to the apps or folders side of the Dock, move them between items, and remove them with undo support.
-- **Dock window previews focus:** Clicking a window preview thumbnail brings specifically that window to the front without pulling all windows of the application forward, restoring minimized windows when needed.
-- **Dock Window Preview Titles:** Window titles rendered underneath preview thumbnails with ellipsis truncation for long titles, whitespace/newline sanitization, and fallback app name resolution.
-- **Dock App Quick Actions:** Quick actions in the preview footer to open a new window, relaunch or force quit applications directly from the Dock hover preview, requiring confirmation for Force Quit unless the application is unresponsive.
-- **Dock Media Controls:** Hover previews for Music and Spotify show the current track when available and offer play/pause, previous and next controls with per-app Automation permission.
 - **Running app indicators:** Configurable line, colored bar or glow beneath open Dock apps. Away temporarily hides the native dots and restores their previous setting when the feature is turned off or the app quits.
 - **Dock Foundation:** Reversible Dock settings store with a full original backup, step-by-step undo, restore and reset to the macOS defaults. Dock item, hover and window services built on Accessibility, and a permissions screen.
 - **Project Foundation:** Native Swift package (`AwayCore` + `AwayApp`), staging build and DMG tooling, CI and tag-driven release workflows.

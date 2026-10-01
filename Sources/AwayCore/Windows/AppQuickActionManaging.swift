@@ -22,7 +22,7 @@ public enum AppActionError: Error, Equatable, LocalizedError {
 /// Policy governing application quick actions behavior.
 public enum ForceQuitConfirmationPolicy {
     /// Determines whether force quitting an app requires user confirmation.
-    /// Per specification: "Forçar encerramento pede confirmação, a não ser que o app esteja travado."
+    /// Force Quit asks for confirmation unless the app is not responding.
     public static func requiresConfirmation(isResponsive: Bool) -> Bool {
         return isResponsive
     }
