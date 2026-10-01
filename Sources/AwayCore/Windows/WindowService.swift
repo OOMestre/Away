@@ -64,9 +64,22 @@ public struct AccessibilityWindowService: WindowManaging {
         if window.isMinimized {
             try check(window.element.set(kAXMinimizedAttribute, to: kCFBooleanFalse))
         }
-        try check(window.element.perform(kAXRaiseAction))
+
         window.element.set(kAXMainAttribute, to: kCFBooleanTrue)
-        NSRunningApplication(processIdentifier: window.pid)?.activate()
+        window.element.set(kAXFocusedAttribute, to: kCFBooleanTrue)
+
+        let appElem = AccessibilityElement.application(pid: window.pid)
+        appElem.set(kAXFocusedWindowAttribute, to: window.element.element)
+        appElem.set(kAXMainWindowAttribute, to: window.element.element)
+
+        if let app = NSRunningApplication(processIdentifier: window.pid) {
+            app.activate(options: [])
+        }
+
+        try check(window.element.perform(kAXRaiseAction))
+
+        window.element.set(kAXMainAttribute, to: kCFBooleanTrue)
+        window.element.set(kAXFocusedAttribute, to: kCFBooleanTrue)
     }
 
     public func close(_ window: WindowInfo) throws {

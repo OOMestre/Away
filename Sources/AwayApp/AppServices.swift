@@ -15,6 +15,9 @@ final class AppServices {
     let permissions: PermissionChecking
     let dockHover: DockHoverMonitor
     let unresponsiveAlerts: DockUnresponsiveAlertController
+    let previewSettings: DockPreviewSettingsStore
+    let windowThumbnails: WindowThumbnailCapturing
+    let previewCoordinator: DockPreviewCoordinator
 
     /// Set when the backup folder could not be created; Dock changes stay disabled.
     let setupError: String?
@@ -32,5 +35,21 @@ final class AppServices {
         permissions = SystemPermissionsService()
         dockHover = DockHoverMonitor()
         unresponsiveAlerts = DockUnresponsiveAlertController(dockItems: dockItems, permissions: permissions)
+
+        let settingsStore = DockPreviewSettingsStore()
+        let thumbnailService = ScreenCaptureKitThumbnailService(windowManager: windows)
+        let panel = DockPreviewPanel()
+        previewSettings = settingsStore
+        windowThumbnails = thumbnailService
+        previewCoordinator = DockPreviewCoordinator(
+            dockHover: dockHover,
+            settingsStore: settingsStore,
+            thumbnailService: thumbnailService,
+            windowManager: windows,
+            permissions: permissions,
+            dockItems: dockItems,
+            presenter: panel
+        )
+        previewCoordinator.start()
     }
 }

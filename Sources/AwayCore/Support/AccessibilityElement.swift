@@ -76,8 +76,12 @@ public struct AccessibilityElement: @unchecked Sendable {
     }
 }
 
-extension AccessibilityElement: Equatable {
+extension AccessibilityElement: Equatable, Hashable {
     public static func == (lhs: AccessibilityElement, rhs: AccessibilityElement) -> Bool {
         CFEqual(lhs.element, rhs.element)
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(CFHash(element))
     }
 }
